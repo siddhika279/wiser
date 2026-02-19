@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# SECRETS (Your MongoDB URI and JWT Secret)
+.env
+
+# Logs and Debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.logs/
+
+# OS files
+.DS_Store
