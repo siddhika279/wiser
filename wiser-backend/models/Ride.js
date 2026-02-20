@@ -7,6 +7,12 @@ const rideSchema = new mongoose.Schema(
       required: true,
       ref: 'User', // This links the ride directly to the User who created it
     },
+    passengers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      }
+    ],
     source: {
       type: String,
       required: true,
@@ -27,7 +33,7 @@ const rideSchema = new mongoose.Schema(
     rideType: {
       type: String,
       required: true,
-      enum: ['offering', 'requesting'], // Are they driving, or looking for a ride?
+      enum: ['provide', 'find'], // <-- Now it matches your frontend!
     },
     estimatedCost: {
       type: Number, // We can use this later for the Price Comparison module

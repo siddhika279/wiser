@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import userRoutes from './routes/userRoutes.js'; // <-- Import your new routes
-
+import rideRoutes from './routes/rideRoutes.js';
 dotenv.config();
 
 const app = express();
@@ -13,6 +13,7 @@ app.use(cors());
 
 // -- NEW API ROUTES --
 app.use('/api/users', userRoutes); // <-- Connect the routes to the URL
+app.use('/api/rides', rideRoutes);
 
 app.get('/', (req, res) => {
   res.send('Wiser API is running...');
