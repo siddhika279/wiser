@@ -7,7 +7,7 @@ const rideSchema = new mongoose.Schema(
       required: true,
       ref: 'User', // This links the ride directly to the User who created it
     },
-    passengers: [
+    approvedPassengers: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -25,6 +25,12 @@ const rideSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    routePath: [
+      {
+        lat: { type: Number, required: true },
+        lng: { type: Number, required: true },
+      }
+    ],
     seatsAvailable: {
       type: Number,
       required: true,

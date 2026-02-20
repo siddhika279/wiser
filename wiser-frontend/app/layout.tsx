@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "@/components/BottomNav"; // <-- Import it here
+import { BottomNav } from "@/components/BottomNav";
+import { TopHeader } from "@/components/TopHeader"; // <-- Import the new top header!
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,12 +21,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100`}>
         
-        {/* We wrap children in a div with bottom padding so content isn't hidden behind the nav bar */}
-        <div className="pb-20 min-h-screen">
+        {/* 1. The minimal top header (Logo + Login) */}
+        <TopHeader />
+        
+        {/* 2. Main content area: pt-16 for the top header, pb-24 for the bottom nav */}
+        <div className="pt-16 pb-24 min-h-screen">
           {children}
         </div>
         
-        {/* Place the navigation bar at the bottom */}
+        {/* 3. The mobile bottom nav (Ride, Eco, Compare) */}
         <BottomNav />
         
       </body>

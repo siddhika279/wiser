@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useJsApiLoader, GoogleMap, Autocomplete, DirectionsRenderer } from "@react-google-maps/api";
 import { MapPin, Navigation, Calendar, Clock, Car, Search, Users } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore"; // <-- Bringing in your global auth!
+import { useAuthStore } from "@/store/useAuthStore";
 
 const libraries: ("places")[] = ["places"];
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore(); // Check if they are a guest!
+  const { isAuthenticated } = useAuthStore();
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -32,7 +32,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [availableRides, setAvailableRides] = useState<any[]>([]);
 
-  // 🗺️ Calculate Route
+  // 🗺️ Calculate Route & Draw Line on Map
   const calculateRoute = async () => {
     if (!source?.formatted_address || !destination?.formatted_address) return;
     const service = new google.maps.DirectionsService();
@@ -46,23 +46,37 @@ export default function HomePage() {
     setDuration(result.routes[0].legs[0].duration?.text || "");
   };
 
-  // 🔍 GUEST ACTION: Search Rides (No Login Required!)
+  // 🔍 GUEST ACTION: Smart Search Rides (500m overlap logic)
   const handleSearchRides = async () => {
     setIsLoading(true);
     setAvailableRides([]);
     try {
-      // Notice: We don't require a token here anymore! Guests can search.
-      // (You might need to update your backend search route to remove the 'protect' middleware later)
       const token = localStorage.getItem("wiser_token") || ""; 
       
-      const response = await fetch(`http://localhost:5000/api/rides/search?date=${date}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      // 1. Extract exact GPS coordinates from the Google Places objects
+      const sLat = source?.geometry?.location?.lat();
+      const sLng = source?.geometry?.location?.lng();
+      const dLat = destination?.geometry?.location?.lat();
+      const dLng = destination?.geometry?.location?.lng();
+
+      if (!sLat || !sLng || !dLat || !dLng) {
+        alert("Please select valid locations from the dropdown suggestions.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Send the exact coordinates to the backend for Haversine math
+      const response = await fetch(
+        `http://localhost:5000/api/rides/search?date=${date}&sourceLat=${sLat}&sourceLng=${sLng}&destLat=${dLat}&destLng=${dLng}`, 
+        {
+          headers: { "Authorization": `Bearer ${token}` }
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
         setAvailableRides(data);
-        if (data.length === 0) alert("No rides found for this date. Try another day!");
+        if (data.length === 0) alert("No rides passing near your route found for this date. Try another day!");
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -71,17 +85,25 @@ export default function HomePage() {
     }
   };
 
-  // 🚘 PROTECTED ACTION: Publish a Ride
+  // 🚘 PROTECTED ACTION: Publish a Ride with GPS Breadcrumbs
   const handlePublishRide = async () => {
     if (!isAuthenticated) {
       alert("Please log in to publish your ride.");
       router.push("/login");
-      return; // Stop the function if they are a guest!
+      return; 
     }
 
     setIsLoading(true);
     try {
       const token = localStorage.getItem("wiser_token");
+      
+      // 1. Extract the secret GPS breadcrumbs (polyline) from the map
+      const routePath = directions?.routes[0]?.overview_path?.map((point) => ({
+        lat: point.lat(),
+        lng: point.lng()
+      })) || [];
+
+      // 2. Send everything to the database
       const response = await fetch("http://localhost:5000/api/rides", {
         method: "POST",
         headers: {
@@ -91,13 +113,17 @@ export default function HomePage() {
         body: JSON.stringify({
           source: source?.formatted_address,
           destination: destination?.formatted_address,
-          date, time, seatsAvailable: seats, rideType: role
+          date, 
+          time, 
+          seatsAvailable: seats, 
+          rideType: role,
+          routePath // <-- This makes your app smart!
         }),
       });
 
       if (response.ok) {
-        alert("Ride published successfully! 🎉");
-        setRole("none"); // Reset view
+        alert("Ride published successfully! 🎉 It is now visible to nearby seekers.");
+        setRole("none"); 
       }
     } catch (error) {
       console.error(error);
@@ -106,16 +132,17 @@ export default function HomePage() {
     }
   };
 
-  // 🎟️ PROTECTED ACTION: Request a Ride
+  // 🎟️ PROTECTED ACTION: Request a Ride (Wait for Approval)
   const handleRequestRide = async (rideId: string) => {
     if (!isAuthenticated) {
-      alert("Please log in to book this seat.");
+      alert("Please log in to request this seat.");
       router.push("/login");
-      return; // Stop the function if they are a guest!
+      return; 
     }
 
     try {
       const token = localStorage.getItem("wiser_token");
+      // Notice we are sending to the new Request endpoint (we will build this backend next!)
       const response = await fetch(`http://localhost:5000/api/rides/${rideId}/request`, {
         method: "POST",
         headers: {
@@ -123,9 +150,14 @@ export default function HomePage() {
           "Content-Type": "application/json"
         }
       });
+      
+      const data = await response.json();
+
       if (response.ok) {
-        alert("🎉 Seat Booked!");
-        handleSearchRides(); // Refresh list
+        alert("🎉 Request Sent! Waiting for the driver to approve.");
+        // We do NOT refresh the list immediately because the seat isn't claimed until approved.
+      } else {
+        alert(`Error: ${data.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -221,7 +253,7 @@ export default function HomePage() {
       {/* 🚗 CARPOOL RESULTS SECTION */}
       {availableRides.length > 0 && (
         <div className="px-6 mt-8 pb-10">
-          <h2 className="text-xl font-bold mb-4">Available Matches</h2>
+          <h2 className="text-xl font-bold mb-4">Smart Matches</h2>
           <div className="space-y-4">
             {availableRides.map((ride) => (
               <div key={ride._id} className="bg-white dark:bg-gray-900 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
@@ -230,7 +262,12 @@ export default function HomePage() {
                     <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center font-bold text-lg">{ride.creator?.name?.charAt(0) || "D"}</div>
                     <div>
                       <h3 className="font-bold">{ride.creator?.name || "Verified Driver"}</h3>
-                      <p className="text-xs text-green-600 font-medium">Eco Score: {ride.creator?.ecoScore || 10} 🍃</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-medium">
+                          {ride.creator?.gender || "Verified"}
+                        </span>
+                        <span className="text-xs text-green-600 font-medium">Eco Score: {ride.creator?.ecoScore || 10} 🍃</span>
+                      </div>
                     </div>
                   </div>
                   <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{ride.seatsAvailable} seats left</div>
@@ -239,7 +276,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-gray-800/50 mt-4">
                   <div className="flex items-center gap-2 font-bold"><Clock size={16} className="text-gray-400" />{new Date(ride.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                   <button onClick={() => handleRequestRide(ride._id)} className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-all">
-                    Request Ride
+                    Send Request
                   </button>
                 </div>
               </div>

@@ -10,49 +10,45 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true, // Prevents duplicate accounts
+      unique: true,
     },
     password: {
       type: String,
       required: true,
     },
-    aadharCardNumber: {
+    phoneNumber: {
       type: String,
       required: true,
-      unique: true, // Prevents the same Aadhar from being used twice
-      minlength: 12,
-      maxlength: 12,
+      unique: true,
+    },
+    gender: {
+      type: String,
+      required: true,
+      enum: ['Male', 'Female', 'Prefer not to say'],
     },
     ecoScore: {
       type: Number,
-      default: 0, // Starts at 0 points
+      default: 10,
     },
-    savedCO2: {
-      type: Number,
-      default: 0, // Starts at 0 kg of CO2 saved
-    }
   },
   {
-    timestamps: true, // Automatically adds 'createdAt' and 'updatedAt' dates
+    timestamps: true,
   }
 );
 
-// This runs automatically BEFORE a user is saved to the database
+// Encrypt password before saving
 userSchema.pre('save', async function (next) {
-  // If the password wasn't changed, skip this step
   if (!this.isModified('password')) {
     next();
   }
-  // Encrypt (hash) the password so we never store raw passwords
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// A custom method to check if a user's login password matches the database
+// Check if password matches
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const User = mongoose.model('User', userSchema);
-
 export default User;

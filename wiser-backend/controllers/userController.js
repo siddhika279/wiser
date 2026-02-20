@@ -2,49 +2,45 @@ import User from '../models/User.js'; // <-- This is the line that was missing!
 import generateToken from '../utils/generateToken.js';
 
 // @desc    Register a new user
-// @route   POST /api/users/signup
+// @route   POST /api/users/register
 export const registerUser = async (req, res) => {
   try {
-    // 1. Destructure the fields from the frontend
-    const { name, email, password, aadharCardNumber } = req.body;
+    // 1. Extract the new fields from the frontend request
+    const { name, email, password, phoneNumber, gender } = req.body;
 
-    // Check if email already exists
-    const userExists = await User.findOne({ email });
+    // 2. Check if user already exists (by email OR phone)
+    const userExists = await User.findOne({ 
+      $or: [{ email }, { phoneNumber }] 
+    });
+
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res.status(400).json({ message: 'User with this email or phone number already exists' });
     }
 
-    // Check if Aadhar is already registered
-    const aadharExists = await User.findOne({ aadharCardNumber });
-    if (aadharExists) {
-      return res.status(400).json({ message: 'Aadhar card already registered' });
-    }
-
-    // 2. Create the new user in the database
+    // 3. Create the user with all the new required fields
     const user = await User.create({
       name,
       email,
       password,
-      aadharCardNumber,
+      phoneNumber,
+      gender,
     });
 
-    // 3. Send the success response back to the frontend
+    // 4. Send back the success response
     if (user) {
-      const token = generateToken(res, user._id);
-      
       res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
-        aadharCardNumber: user.aadharCardNumber,
+        phoneNumber: user.phoneNumber,
+        gender: user.gender,
         ecoScore: user.ecoScore,
-        token: token
+        token: generateToken(user._id),
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
-    // This is what caught the error and sent "User is not defined" to your screen!
     res.status(500).json({ message: error.message });
   }
 };
@@ -66,7 +62,7 @@ export const authUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        aadharCardNumber: user.aadharCardNumber,
+        phoneNumber: user.phomeNumber,
         ecoScore: user.ecoScore,
         token: token,
       });
