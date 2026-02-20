@@ -32,7 +32,7 @@ export default function SignupPage() {
 
     try {
       // 1. Send the POST request to your backend
-      const response = await fetch("http://localhost:5000/api/users/signup", {
+      const response = await fetch("http://localhost:5000/api/users/signUp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

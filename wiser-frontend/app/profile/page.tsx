@@ -15,7 +15,7 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Not Logged In</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-2 mb-6">Please log in to view your profile.</p>
         <button
-          onClick={() => router.push("/signup")}
+          onClick={() => router.push("/signUp")}
           className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-xl transition-all"
         >
           Create an Account
